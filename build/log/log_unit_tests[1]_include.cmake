@@ -1,0 +1,5 @@
+if(EXISTS "/home/matthias/work/spi_test/build/log/log_unit_tests[1]_tests.cmake")
+  include("/home/matthias/work/spi_test/build/log/log_unit_tests[1]_tests.cmake")
+else()
+  add_test(log_unit_tests_NOT_BUILT log_unit_tests_NOT_BUILT)
+endif()

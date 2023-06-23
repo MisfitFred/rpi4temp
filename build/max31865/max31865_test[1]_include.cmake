@@ -1,0 +1,5 @@
+if(EXISTS "/home/matthias/work/spi_test/build/max31865/max31865_test[1]_tests.cmake")
+  include("/home/matthias/work/spi_test/build/max31865/max31865_test[1]_tests.cmake")
+else()
+  add_test(max31865_test_NOT_BUILT max31865_test_NOT_BUILT)
+endif()

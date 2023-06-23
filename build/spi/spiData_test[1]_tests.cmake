@@ -1,0 +1,5 @@
+add_test( spiDataTest.create /home/matthias/work/spi_test/build/spi/spiData_test [==[--gtest_filter=spiDataTest.create]==] --gtest_also_run_disabled_tests)
+set_tests_properties( spiDataTest.create PROPERTIES WORKING_DIRECTORY /home/matthias/work/spi_test/build/spi SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+add_test( spiDataTest.operator1 /home/matthias/work/spi_test/build/spi/spiData_test [==[--gtest_filter=spiDataTest.operator1]==] --gtest_also_run_disabled_tests)
+set_tests_properties( spiDataTest.operator1 PROPERTIES WORKING_DIRECTORY /home/matthias/work/spi_test/build/spi SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+set( spiData_test_TESTS spiDataTest.create spiDataTest.operator1)
