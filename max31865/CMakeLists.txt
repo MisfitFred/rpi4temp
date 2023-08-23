@@ -1,10 +1,12 @@
-add_library (max31865
-	${CMAKE_CURRENT_SOURCE_DIR}/src/max31865.cpp    
-	${CMAKE_CURRENT_SOURCE_DIR}/inc/max31865.h     
-)
-target_include_directories (max31865 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
-target_link_libraries(max31865 PUBLIC spi log)
+
+    add_library (max31865
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/max31865.cpp    
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc/max31865.h     
+    )
+    target_include_directories (max31865 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+    target_link_libraries(max31865 PUBLIC spi)
 #*********************************** UNIT TESTS ***************************************
+
 add_gtest(
 	TARGET max31865_test
 	LIBRARY log max31865
