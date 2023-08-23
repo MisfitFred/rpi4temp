@@ -1,5 +1,0 @@
-if(EXISTS "/home/matthias/work/spi_test/build/spi/spiData_test[1]_tests.cmake")
-  include("/home/matthias/work/spi_test/build/spi/spiData_test[1]_tests.cmake")
-else()
-  add_test(spiData_test_NOT_BUILT spiData_test_NOT_BUILT)
-endif()

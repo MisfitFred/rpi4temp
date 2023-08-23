@@ -1,167 +1,148 @@
+
 #include "spi.h"
+//#include <iostream>
+//#include <ostream>
+#include <sstream>
 
-spi::spi(std::string dev, unsigned long int mode, uint32_t speed) : spi()
-{
-    this->spiDevice = dev;
-    this->spiMode = mode;
-    this->spiSpeed = speed;
-    fillSpiTransferStruct();
-}
+spi *spi::instance[2] = {nullptr, nullptr};
 
-spi::spi()
+spi::spi(int instNum)
 {
-    log = new Log::Logger(&std::cout, Log::Logger::DEBUG);
-    fillSpiTransferStruct();
-    gpioHandler = new gpio_rgpio();
-}
+    this->instanceNumber = instNum;
+    setSpiHwInstancePtr(instNum);
+    this->spiSpeedReal = spi_init(this->spiHwInstance, this->spiSpeed);
+	
+	}
 
 spi::~spi()
 {
-    delete log;
-    delete gpioHandler;
+    spi_deinit(this->spiHwInstance);
 }
 
 int add(int a, int b);
 
-void spi::fillSpiTransferStruct(void)
-{
-    spiTransfer.speed_hz = spiSpeed;
-    spiTransfer.bits_per_word = 8;
-    spiTransfer.delay_usecs = 0;
-    spiTransfer.cs_change = 0;
-    spiTransfer.word_delay_usecs = 0;
-    spiTransfer.tx_nbits = 0;
-    spiTransfer.rx_nbits = 0;
-    spiTransfer.pad = 0;
-}
+/**
+ * @brief Get the spi Instance object
+ *
+ * @param spiInstanceNumber
+ */
 
-void spi::openDevice(void)
+spi *spi::getInstance(uint8_t spiInstanceNumber)
 {
-    deviceHandler = open(this->spiDevice.c_str(), O_RDWR);
-    if (deviceHandler < 0)
+    // not more than two instances are allowed since RP2040 has only two SPI interfaces
+    if (spiInstanceNumber > 1)
     {
-        log->fatal() << "Could not open the SPI device..." << deviceHandler;
-        exit(EXIT_FAILURE);
+        return nullptr;
     }
 
-    gpioHandler->setMode(8, PI_OUTPUT);
-    gpioHandler->write(8, 1);
-}
-
-void spi::closeDevice(void)
-{
-    close(deviceHandler);
-}
-
-void spi::setMode(void)
-{
-    unsigned long int mode;
-    int ret = ioctl(deviceHandler, SPI_IOC_RD_MODE, &mode);
-    if (ret != 0)
+    // create new instance if not already done
+    if (instance[spiInstanceNumber] == nullptr)
     {
-        log->fatal() << "Could not read SPIMode (RD)...ioctl fail";
-        exit(EXIT_FAILURE);
+        instance[spiInstanceNumber] = new spi(spiInstanceNumber);
     }
-    log->fatal() << "mode: " << std::hex << mode;
-    mode |= spiMode;
-    log->fatal() << "mode: " << std::hex << mode;
-    ret = ioctl(deviceHandler, SPI_IOC_WR_MODE, &mode);
-    if (ret != 0)
+
+    return instance[spiInstanceNumber];
+}
+
+void spi::setSpiHwInstancePtr(uint8_t spiInst)
+{
+    switch (spiInst)
     {
-        log->fatal() << "Could not set SPIMode (WR)...ioctl fail";
-        exit(EXIT_FAILURE);
+    case 0:
+        this->spiHwInstance = spi0;
+        break;
+    case 1:
+        this->spiHwInstance = spi1;
+        break;
+    default:
+        this->spiHwInstance = nullptr;
     }
 }
 
-void spi::setSpeed(void)
+void spi::setMode(spiMode_e mode)
 {
-    uint32_t speed;
-    int ret = ioctl(deviceHandler, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-    if (ret != 0)
+    switch (mode)
     {
-        log->fatal() << "Could not read SPISpeed (RD)...ioctl fail";
-        exit(EXIT_FAILURE);
+    case SPI_MODE_0:
+        this->cpol = SPI_CPOL_0;
+        this->cpha = SPI_CPHA_0;
+        break;
+    case SPI_MODE_1:
+        this->cpol = SPI_CPOL_0;
+        this->cpha = SPI_CPHA_1;
+        break;
+    case SPI_MODE_2:
+        this->cpol = SPI_CPOL_1;
+        this->cpha = SPI_CPHA_0;
+        break;
+    case SPI_MODE_3:
+        this->cpol = SPI_CPOL_1;
+        this->cpha = SPI_CPHA_1;
+        break;
     }
 
-    speed = 10000;
-    ret = ioctl(deviceHandler, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-    if (ret != 0)
-    {
-        log->fatal() << "Could not set SPISpeed (WR)...ioctl fail";
-        exit(EXIT_FAILURE);
-    }
+    spi_set_format(this->spiHwInstance, 8, this->cpol, this->cpha, SPI_MSB_FIRST);
 }
 
-bool spi::spi_transmit_setSpiTransferTxBuffer(spiData *txData)
+void spi::setSpeed(uint32_t speed)
 {
-    if (txData == nullptr)
-    {
-        log->fatal() << "txData must be set";
-        return false;
-    }
-    else
-    {
-        spiTransfer.tx_buf = txData->getBufferAdr();
-        return true;
-    }
+    this->spiSpeed = speed;
+    spi_set_baudrate(this->spiHwInstance, this->spiSpeed);
 }
 
-bool spi::spi_transmit_setSpiTransferRxBuffer(spiData *rxData, spiData *txData)
+void spi::chipSelect(uint8_t csPin)
 {
-    bool ret = false;
-    // checking rxData
-
-    if (txData->getBufferSize() != rxData->getBufferSize())
-    {
-        log->fatal() << "tx and rx buffer must be the same size";
-        ret = false;
-    }
-    else
-    {
-        spiTransfer.rx_buf = rxData->getBufferAdr();
-        ret = true;
-    }
-
-    return ret;
+    asm volatile("nop \n nop \n nop");
+    gpio_put(csPin, this->csActiveValue);
+    asm volatile("nop \n nop \n nop");
 }
 
+void spi::chipDeselect(uint8_t csPin)
+{
+    asm volatile("nop \n nop \n nop");
+    gpio_put(csPin, this->csInactiveValue);
+    asm volatile("nop \n nop \n nop");
+}
+
+/**
+ * @brief Transmit data via SPI
+ *
+ * @param txData transmit data buffer
+ * @param rxData receiver data buffer, can be nullptr, then an internal buffer is created but the data is thrown away
+ */
 void spi::transmit(spiData *txData, spiData *rxData, uint32_t csPin)
 {
     spiData *tempRxBuffer = nullptr;
 
-    spi_transmit_setSpiTransferTxBuffer(txData);
-
     if (rxData == nullptr)
     {
         unsigned int size = txData->getBufferSize();
-        log->debug() << "no rx buffer given, create temp buffer with size: " << size << " bytes";
+        // log->debug() << "no rx buffer given, create temp buffer with size: " << size << " bytes";
         tempRxBuffer = new spiData(size);
-        spi_transmit_setSpiTransferRxBuffer(tempRxBuffer, txData);
     }
     else
     {
-        spi_transmit_setSpiTransferRxBuffer(rxData, txData);
+        if (txData->getBufferSize() != rxData->getBufferSize())
+        {
+            // log->fatal() << "tx and rx buffer must be the same size";
+        }
     }
 
-    spiTransfer.len = txData->getBufferSize();
+    chipSelect(csPin);
+    uint8_t *txBuffer = txData->getBufferP();
+    uint8_t *rxBuffer = rxData->getBufferP();
+    uint32_t size = txData->getBufferSize();
+    int ret = spi_write_read_blocking(this->spiHwInstance, txBuffer, rxBuffer, size);
 
-    gpioHandler->write(csPin, 0);
-
-    int ret = ioctl(deviceHandler, SPI_IOC_MESSAGE(1), &spiTransfer);
     if (ret != 0)
     {
-        log->debug() << "send SPI message... got: " << ret << " bytes";
+        // log->debug() << "send SPI message... got: " << ret << " bytes";
     }
+    chipDeselect(csPin);
 
-    gpioHandler->write(csPin, 1);
-
-    log->debug() << txData->toString();
-
-    if (rxData != nullptr)
-        log->debug() << rxData->toString();
-    else
+    if (rxData == nullptr)
     {
-        log->debug() << tempRxBuffer->toString();
+        // log->debug() << tempRxBuffer->toString();
         delete tempRxBuffer;
     }
 }
@@ -239,10 +220,12 @@ std:array<uint8_t, 8> spiData::getBuffer(void)
  */
 constexpr const uint8_t &spiData::operator[](int index) const noexcept
 {
-    if (index >= this->size)
-        throw std::out_of_range("index out of range");
+    //if (index >= this->size)
+        //throw std::out_of_range("index out of range");
     return (buffer[index]);
 }
+
+
 
 /**
  * @brief Convert the SPI data to a string
@@ -263,6 +246,8 @@ std::string spiData::toString(void)
     return str;
 }
 
+
+#if 0
 /**
  * @brief Print the SPI data to stdout
  */
@@ -270,3 +255,4 @@ void spiData::print(void)
 {
     std::cout << this->toString() << std::endl;
 }
+#endif

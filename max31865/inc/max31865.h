@@ -1,37 +1,60 @@
 #pragma once
 #include <string>
-#include <iostream>
-#include <sstream>
+// #include <iostream>
+// #include <sstream>
 
 #include "spi.h"
-#include "log.h"
+// #include "log.h"
 
+/**
+ * @brief base class for max31865 register
+ *
+ */
 struct max31865Register_t
 {
-    enum registerType_t
+    /**
+     * @brief Permission to read or write to register
+     */
+    enum registerPermission_t
     {
-        READ = 0,
-        WRITE = 1,
+        READ_ONLY = 0,
+        WRITE_ONLY = 1,
         READ_WRITE = 2
     };
 
     max31865Register_t() {}
     virtual ~max31865Register_t() {}
-    const max31865Register_t::registerType_t registerType = READ;
-    const uint8_t baseAddress = 0x20; // invalid address
-    const uint8_t length = 0x00;
+    max31865Register_t::registerPermission_t registerPermission;
+    virtual max31865Register_t::registerPermission_t getRegPermission(void) { return this->registerPermission; }
+    uint8_t baseAddress = 0x20; // invalid address to avoid that this class is used directly
+    uint8_t length = 0x00;      // invalid length to avoid that this class is used directly
+
+    virtual bool operator==(const max31865Register_t &c)
+    {
+        return false;
+    }
 
 protected:
     friend class max31865;
+
     virtual void getRawValue(uint8_t *value) { *value = 0; };
-    void updateRawValue(uint8_t *value) { *value = 0; };
+    virtual void updateRawValue(uint8_t *value) { *value = 0; };
 };
 
+/**
+ * @brief Class for the max31865 configuration register
+ *
+ */
 struct configRegister_t : public max31865Register_t
 {
-    const max31865Register_t::registerType_t registerType = WRITE;
-    const uint8_t baseAddress = 0x00;
-    const uint8_t length = 1;
+    configRegister_t()
+    {
+        uint8_t initValues[1] = {0x00};
+        this->registerPermission = READ_WRITE;
+        this->updateRawValue(initValues);
+        this->baseAddress = 0x00;
+        this->length = 1;
+    }
     enum vBias_t
     {
         OFF = 0,
@@ -88,38 +111,50 @@ struct configRegister_t : public max31865Register_t
     void print(void);
     std::string toString(void);
 
+    bool operator==(const configRegister_t &c);
+    bool operator!=(const configRegister_t &c) { return !(*this == c); }
+
 #ifndef UNIT_TEST
 protected:
 #endif
-    void getRawValue(uint8_t *value);
-    void updateRawValue(uint8_t *value);
+    virtual void getRawValue(uint8_t *value) override;
+    virtual void updateRawValue(uint8_t *value) override;
 
     friend class max31865;
 };
 
+/**
+ * @brief Class for the max31865 RTD MSB register
+ *
+ */
 struct rtdRegister_t : public max31865Register_t
 {
-    const max31865Register_t::registerType_t registerType = READ;
-    const uint8_t baseAddress = 0x01;
-    const uint8_t length = 2;
+    rtdRegister_t()
+    {
+        this->registerPermission = READ_ONLY;
+        baseAddress = 0x01;
+        length = 2;
+    }
 
     bool rtdFault;
-
     uint16_t getResistance(void);
 
     void print(void);
 
     std::string toString(void);
 
+    bool operator==(const rtdRegister_t &c);
+    bool operator!=(const rtdRegister_t &c) { return !(*this == c); }
+
 #ifndef UNIT_TEST
 protected:
 #endif
 
-    void getRawValue(uint8_t *value)
+    virtual void getRawValue(uint8_t *value)
     {
         *value = 0x00;
     };
-    void updateRawValue(uint8_t *value);
+    virtual void updateRawValue(uint8_t *value);
 
     friend class max31865;
 
@@ -127,9 +162,12 @@ private:
     uint16_t resistance;
 };
 
+/**
+ * @brief Class for the max31865 high fault threshold register
+ *
+ */
 struct faultThresholdRegister_t : public max31865Register_t
 {
-
     uint16_t getThreshold(void);
 
     void setThreshold(uint16_t threshold);
@@ -138,42 +176,61 @@ struct faultThresholdRegister_t : public max31865Register_t
 
     std::string toString(void);
 
-    const max31865Register_t::registerType_t registerType = READ_WRITE;
-    const uint8_t length = 2;
-
+    bool operator==(const faultThresholdRegister_t &c);
+    bool operator!=(const faultThresholdRegister_t &c) { return !(*this == c); }
 #ifndef UNIT_TEST
 protected:
 #endif
-
-    void updateRawValue(uint8_t *value);
-    void getRawValue(uint8_t *value);
-
-    uint8_t getThresholdRawRegMSB(void);
-    uint8_t getThresholdRawRegLSB(void);
-
     friend class max31865;
+    virtual void updateRawValue(uint8_t *value);
+    virtual void getRawValue(uint8_t *value);
 
 private:
+    uint8_t getThresholdRawRegMSB(void);
+    uint8_t getThresholdRawRegLSB(void);
     uint16_t threshold;
 };
 
+/**
+ * @brief Class for the max31865 high fault threshold register
+ *
+ */
 struct faultHighThresholdRegister_t : public faultThresholdRegister_t
 {
-public:
-    const uint8_t baseAddress = 0x03;
+    faultHighThresholdRegister_t()
+    {
+        this->registerPermission = READ_WRITE;
+        length = 2;
+        baseAddress = 0x03;
+    }
 };
 
+/**
+ * @brief Class for the max31865 high fault threshold register
+ *
+ */
 struct faultLowThresholdRegister_t : public faultThresholdRegister_t
 {
-public:
-    const uint8_t baseAddress = 0x05;
+    faultLowThresholdRegister_t()
+    {
+        this->registerPermission = READ_WRITE;
+        length = 2;
+        baseAddress = 0x03;
+    }
 };
 
+/**
+ * @brief Class for the max31865 fault status register
+ *
+ */
 struct faultStatus_t : public max31865Register_t
 {
-    const max31865Register_t::registerType_t registerType = READ;
-    const uint8_t baseAddress = 0x07;
-    const uint8_t length = 1;
+    faultStatus_t()
+    {
+        this->registerPermission = READ_ONLY;
+        this->baseAddress = 0x07;
+        this->length = 1;
+    }
 
     bool rtdHighThreshold;
     bool rtdLowThreshold;
@@ -186,14 +243,16 @@ struct faultStatus_t : public max31865Register_t
 
     std::string toString(void);
 
+    bool operator==(const faultStatus_t &c);
+    bool operator!=(const faultStatus_t &c) { return !(*this == c); }
 #ifndef UNIT_TEST
 protected:
 #endif
-    void getRawValue(uint8_t *value)
+    virtual void getRawValue(uint8_t *value)
     {
         *value = 0x00;
     };
-    void updateRawValue(uint8_t *value);
+    virtual void updateRawValue(uint8_t *value);
 };
 
 class max31865
@@ -205,10 +264,12 @@ public:
         CONVERSION_ALREADY_RUNNING,
         CONVERSION_STILL_RUNNING,
         CONVERSION_NOT_RUNNING,
-        INVALID_REGISTER_LENGTH
+        INVALID_REGISTER_LENGTH,
+        INVALID_REGISTER_PERMISSION,
+        CONNECTION_ERROR
     };
 
-    max31865(spi *spiObj, uint8_t rdyPin);
+    max31865(spi *spiObj, uint8_t csPin, uint8_t rdyPin);
     max31865(){};
     ~max31865();
 
@@ -229,15 +290,24 @@ public:
     errorCode_t stopContinuousConversion(void);
     errorCode_t getConversionResult(uint16_t *rtd);
 
+    /**
+     * @brief Test the connection to the max31865
+     *
+     * @attention The register values are overwritten during the test and 
+     *            NOT restored after the test.
+     * @return errorCode_t
+     */
+    errorCode_t testConnection(void);
+
     bool isConversionRunning(void);
     bool isConversionResultReady(void);
 
-    errorCode_t readRegister(max31865Register_t reg);
-    errorCode_t writeRegister(max31865Register_t reg);
+    errorCode_t readRegister(max31865Register_t &reg);
+    errorCode_t writeRegister(max31865Register_t &reg);
+
 private:
-
-
     spi *spiDevice;
-    uint32_t readyPin;
+    uint8_t readyPin;
+    uint8_t csPin;
     configRegister_t configRegister;
 };

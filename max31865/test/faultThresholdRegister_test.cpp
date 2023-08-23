@@ -63,6 +63,8 @@ TEST_F(faultThresholdRegisterTest, update_getThreshold)
     actualThreshold = myfaultThresholdRegister->getThreshold();
     EXPECT_EQ(expectedThreshold, actualThreshold);
 }
+
+#if 0 //as private declared functions
 TEST_F(faultThresholdRegisterTest, getThresholdRawRegMSB)
 {
     uint8_t actualRawRegMSBThreshold = myfaultThresholdRegister->getThreshold();
@@ -86,3 +88,4 @@ TEST_F(faultThresholdRegisterTest, getThresholdRawRegLSB)
     actualRawRegLSBThreshold = myfaultThresholdRegister->getThresholdRawRegLSB();
     EXPECT_EQ(expectedRawRegLSBThreshold, actualRawRegLSBThreshold);
 }
+#endif 

@@ -1,5 +1,0 @@
-if(EXISTS "/home/matthias/work/spi_test/build/max31865/rtdRegister[1]_tests.cmake")
-  include("/home/matthias/work/spi_test/build/max31865/rtdRegister[1]_tests.cmake")
-else()
-  add_test(rtdRegister_NOT_BUILT rtdRegister_NOT_BUILT)
-endif()
