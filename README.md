@@ -25,6 +25,7 @@ The software is written in C++ and uses the Raspberry Pi Pico SDK. The path to t
 Feature status:
 
 * [x] SPI communication with MAX31865
+* [ ] temperatur conversion pt100
 * [ ] Logging
 * [ ] WLAN communication
 * [ ] Relay control
