@@ -91,6 +91,7 @@ else()
 
 endif() 
 #add_subdirectory(log)
+add_subdirectory(doc)
 add_subdirectory(spi)
 add_subdirectory(max31865)
 add_subdirectory(main)
