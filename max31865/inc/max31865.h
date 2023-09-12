@@ -6,6 +6,8 @@
 #include "spi.h"
 // #include "log.h"
 #include "max31865_reg.h"
+#include "max31865_conv.h"
+
 
 /**
  * @brief Class for the max31865 temperature sensor
@@ -23,7 +25,8 @@ public:
         CONVERSION_NOT_READY,
         INVALID_REGISTER_LENGTH,
         INVALID_REGISTER_PERMISSION,
-        CONNECTION_ERROR
+        CONNECTION_ERROR,
+        SENSOR_TYPE_NOT_SET
     };
 
     max31865(spi *spiObj, uint8_t csPin, uint8_t rdyPin);
@@ -52,11 +55,14 @@ public:
     errorCode_t readRegister(max31865Register_t &reg);
     errorCode_t writeRegister(max31865Register_t &reg);
 
+    errorCode_t setSensorType(max31865_sensor_t *sensorType){sensor = sensorType;};
+
 private:
     float convertTemperature(uint16_t resistorValue);
     spi *spiDevice;
     uint8_t readyPin;
     uint8_t csPin;
     configRegister_t configRegister;
+    max31865_sensor_t *sensor = nullptr;
 
 };

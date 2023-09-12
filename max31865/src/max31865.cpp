@@ -135,8 +135,15 @@ max31865::errorCode_t max31865::readTemperature(float &temperature)
     {
         rtdRegister_t rtdReg;
         readRegister(rtdReg);
-        temperature = rtdReg.getResistance();
-        ret = NO_ERROR;
+
+        if (nullptr == sensor)
+        {
+            ret = SENSOR_TYPE_NOT_SET;
+        }
+        else
+        {
+            temperature = sensor->convertTemperature(rtdReg.getResistance());
+        }
     }
     else
     {
@@ -144,6 +151,7 @@ max31865::errorCode_t max31865::readTemperature(float &temperature)
     }
     return ret;
 }
+
 max31865::errorCode_t max31865::readFaultStatus(faultStatus_t &faultStatus)
 {
     errorCode_t ret = NO_ERROR;

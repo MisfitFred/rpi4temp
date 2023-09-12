@@ -13,7 +13,9 @@ else
     rm -Rf ./build #remove build directory
     
     cmake -S . -B ./build -G Ninja  
-    cmake --build ./build./b
+    cmake --build ./build
+    cmake --build ./build --target Sphinx
+
 fi
 
 

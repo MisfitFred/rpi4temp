@@ -90,8 +90,12 @@ else()
     )
 
 endif() 
-#add_subdirectory(log)
+
+# we should start with doc to have the doxygen files ready for the other targets
 add_subdirectory(doc)
+
+#add_subdirectory(log)
+
 add_subdirectory(spi)
 add_subdirectory(max31865)
 add_subdirectory(main)
@@ -100,3 +104,19 @@ add_subdirectory(main)
 # set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 # set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 # include(CPack)
+
+
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+
+    set(DOXYGEN_GENERATE_HTML YES)
+    set(DOXYGEN_GENERATE_MAN NO)
+
+    doxygen_add_docs(
+        Doxygen
+        ${DOXYGEN_HEADER_FILES}
+        COMMENT "Generate man pages"
+        ) 
+else (DOXYGEN_FOUND)
+  message("Doxygen need to be installed to generate the doxygen documentation")
+endif (DOXYGEN_FOUND)

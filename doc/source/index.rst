@@ -92,9 +92,9 @@ input values are:
 
 .. math::
 
-   celsius = (fahrenheit - 32) * \frac{5}{9}
+   celsius = (fahrenheit - 32) \cdot \frac{5}{9}
 
-   R_{therm} = \frac{ R_{ref}}{ ADC_{max}}
+   R_{T} = \frac{ ADC(T) }{ ADC_{max}} \cdot R_{ref}
 
    
 PT100
@@ -103,11 +103,21 @@ PT100
 
 .. math::
 
+
+    
+    a = 3.90830 \cdot 10^3 \\\\
+    b = -5.77500 \cdot 10^7 \\\\ 
+    c=
+    \begin{cases}
+    -4.18301 \cdot 10^12 \quad for -200^{\circ} \le T \le 0^{\circ} \\\\ 
+    0 \quad for 0^{\circ} < T +850^{\circ}
+    \end{cases}\\\\ \\\\
+
+   
+
     R(T) = R_{0}(1 + aT + bT^2 + c(T - 100)T^3)
 
-    a = 3.90830 x 10-3
-    b = -5.77500 x 10-7
-    c = -4.18301 x 10-12 for -200NC P T P 0NC, 0 for 0NC P TP +850NC
+    
 
 The PT100 curve is really linear, so we can use a simple linear equation to 
 calculate the temperature. We are majorly interested in a high accuracy in
@@ -118,10 +128,10 @@ temperature.
 
 .. math::
 
-    R_{s}(T) = a*T + b
+    R_{s}(T) = aT + b  \\\\
 
-    a = \frac{R(120) - R_(50)}{120 - 50}
-    a = \frac{26.670875}{70} = 0.3810125
+    a = \frac{R(120) - R_(50)}{120 - 50} \\\\
+    a = \frac{26.670875}{70} = 0.3810125  \\\\
     b = 100
 
 with this curve we can oberve a slight deviation around -0.3 degrees celsius 
@@ -131,10 +141,10 @@ to minimize the deviation).
 
 .. math::
 
-    R_{s}(T) = a*T + b
+    R_{s}(T) = a*T + b  \\\\
 
-    a = \frac{R(120) - R_(50)}{120 - 50}
-    a = \frac{26.670875}{70} = 0.3810125
+    a = \frac{R(120) - R_(50)}{120 - 50}  \\\\
+    a = \frac{26.670875}{70} = 0.3810125  \\\\
     b = 100.393
 
 Finally we have to combine the two equations to get the temperature from the
@@ -142,7 +152,10 @@ ADC values.
 
 .. math::
 
-    T(R) = \frac{R_{s} - b}{a}
-    R = \frac{ R_{ref}}{ ADC_{max}}
+    T(R) = \frac{R_s(T)) - b}{a}  \\\\
+    R_{T} = \frac{ ADC(T) }{ ADC_{max}} \cdot R_{ref} \\\\  \\\\
 
-    T(R) = \frac{\frac{ R_{ref}}{ ADC_{max}} - b}{a}
+
+    T(R) = \frac{\frac{ ADC }{ ADC_{max}} \cdot R_{ref} - b}{a} 
+
+
