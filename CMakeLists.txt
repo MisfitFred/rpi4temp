@@ -15,7 +15,9 @@ else()
     # Pull in SDK (must be before project)
     include(pico_sdk_import.cmake)
 
-    #set(FREERTOS_KERNEL_PATH  $ENV{FREERTOS_KERNEL_PATH})
+    set(FREERTOS_KERNEL_PATH  $ENV{FREERTOS_KERNEL_PATH})
+
+    include(FreeRTOS_Kernel_import.cmake)
 
     #include(FreeRTOS_Kernel_import.cmake)
 endif()

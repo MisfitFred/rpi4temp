@@ -27,4 +27,12 @@ RUN mkdir /home/dev && \
 
 RUN apk upgrade
 
+ARG FREERTOS_PATH=/usr/share/FreeRTOS
+RUN git clone --depth 1 https://github.com/FreeRTOS/FreeRTOS.git ${FREERTOS_PATH} && \
+    cd ${FREERTOS_PATH} && \
+    git checkout -b v10.4.3 && \
+    git submodule update --init --recursive --depth 1
+
+ENV PICO_SDK_PATH=$FREERTOS_PATH
+
 

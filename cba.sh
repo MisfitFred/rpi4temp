@@ -16,6 +16,7 @@ else
 
     cmake --build ./build
     cmake --build ./build --target Sphinx #build sphinx documentation
+    
     #cmake --build ./utest
     #cmake --build ./utest --target test #run unit tests
 fi
