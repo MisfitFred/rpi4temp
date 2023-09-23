@@ -160,11 +160,11 @@ max31865::errorCode_t max31865::readFaultStatus(faultStatus_t &faultStatus)
     return ret;
 }
 
-float convertTemperature(uint16_t resistorValue)
+float  max31865::convertTemperature(uint16_t resistorValue)
 {
     float temperature = 0.0f;
-    
 
+    return sensor->convertTemperature(resistorValue);
 }
 
 

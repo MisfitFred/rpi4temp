@@ -1,5 +1,7 @@
 
-add_library(max31865
+add_library(max31865 INTERFACE)
+
+target_sources(max31865 INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/max31865.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/max31865_reg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/max31865_conv.cpp
@@ -7,8 +9,9 @@ add_library(max31865
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/max31865_reg.h
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/max31865_conv.h
 )
-target_include_directories(max31865 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
-target_link_libraries(max31865 PUBLIC spi)
+target_include_directories(max31865 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+target_link_libraries(max31865 INTERFACE spi)
+
 
 # *********************************** UNIT TESTS ***************************************
 add_gtest(

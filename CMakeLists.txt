@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.22)
 
 option(ENABLE_UNITTEST "Enable unit test" OFF)
 
@@ -17,7 +17,7 @@ else()
 
     #set(FREERTOS_KERNEL_PATH  $ENV{FREERTOS_KERNEL_PATH})
 
-    #include(FreeRTOS_Kernel_import.cmake)
+    include(FreeRTOS_Kernel_import.cmake)
 endif()
 
 project(bbq C CXX ASM)

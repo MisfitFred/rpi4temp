@@ -5,6 +5,9 @@
 #include "pico/binary_info.h"
 #include "max31865.h"
 #include "spi.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
 /*
  *  GPIO   | F1
  *  -------|----------

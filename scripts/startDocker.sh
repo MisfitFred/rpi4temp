@@ -7,7 +7,6 @@ if [ "$(docker container ls -a -f "name=$containerName" -f "status=exited" | gre
     docker container rm $containerName -f
 fi
 
-docker run -d -w /home/dev/src -it -u $(id -u):$(id -g) --name pico-sdk --mount type=bind,source=${PWD},target=/home/dev/src raspberry-pi-pico-docker-dev
-#docker run -d -w /home/dev/src -it --name pico-sdk --mount type=bind,source=${PWD},target=/home/dev/src raspberry-pi-pico-docker-dev
+docker run -d -w /home/dev/src -it -u $(id -u):$(id -g) --name pico-sdk --mount type=bind,source=${PWD},target=/home/dev/src fred78/raspberry-pi-pico-sdk:latest
 
 docker exec -it pico-sdk $1

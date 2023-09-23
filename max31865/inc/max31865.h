@@ -55,7 +55,7 @@ public:
     errorCode_t readRegister(max31865Register_t &reg);
     errorCode_t writeRegister(max31865Register_t &reg);
 
-    errorCode_t setSensorType(max31865_sensor_t *sensorType){sensor = sensorType;};
+    void  setSensorType(max31865_sensor_t *sensorType){sensor = sensorType;};
 
 private:
     float convertTemperature(uint16_t resistorValue);

@@ -1,13 +1,21 @@
 
+
 if(TARGET_BUILD)
     add_executable(bbq
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     )
 
-    target_link_libraries(bbq PUBLIC pico_stdlib max31865)
+    target_link_libraries(bbq PUBLIC max31865 spi)
+    target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4)
+
+    target_include_directories(bbq PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        )
 
     pico_add_extra_outputs(bbq)
 endif()
+
+
 
 #*********************************** UNIT TESTS ***************************************
 # unit test executable: spi_test
