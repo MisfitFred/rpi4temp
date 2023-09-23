@@ -1,4 +1,5 @@
 #include <string.h>
+#include <cstdint>
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -32,12 +33,14 @@ int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unu
     gpio_init(SPI0_CS0_PIN);
     gpio_set_dir(SPI0_CS0_PIN, GPIO_OUT);
     gpio_put(SPI0_CS0_PIN, 1); //cs is active low, initialize as high
+
+
     bi_decl(bi_1pin_with_name(SPI0_CS0_PIN, "SPI0 CS0"));
 
     gpio_init(RDY0_PIN);
     gpio_set_dir(RDY0_PIN, GPIO_IN);
     bi_decl(bi_1pin_with_name(RDY0_PIN, "RDY0"));
-
+    
     gpio_set_function(SPI0_RX_PIN, GPIO_FUNC_SPI);
     gpio_set_function(SPI0_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(SPI0_TX_PIN, GPIO_FUNC_SPI);
