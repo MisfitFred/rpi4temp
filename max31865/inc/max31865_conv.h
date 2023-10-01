@@ -34,7 +34,7 @@ public:
      */
     float convertTemperature(uint16_t adc);
 
-    uint32_t R0 = 420;
+    uint32_t R0 = 430;
 };
 
 
@@ -54,5 +54,5 @@ public:
      */
     float convertTemperature(uint16_t adc);
 
-    uint32_t R0 = 420;
+    uint32_t R0 = 430;
 };

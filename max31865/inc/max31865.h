@@ -9,6 +9,16 @@
 #include "max31865_conv.h"
 
 
+struct max31865Config
+{
+    bool threeWireMode;
+    uint8_t upperThresholdInPercent;
+    uint8_t lowerThresholdInPercent;
+    max31865_sensor_t *sensorType;
+    bool filter50Hz; //if false  60Hz
+    bool faultDetectionOn;
+};
+
 /**
  * @brief Class for the max31865 temperature sensor
  *
@@ -35,9 +45,11 @@ public:
 
     errorCode_t readTemperature(float &temperature);
     errorCode_t readFaultStatus(faultStatus_t &faultStatus);
+    errorCode_t clearFaultStatus(void);
     
     errorCode_t startOneShotConversion(void);
     errorCode_t startContinuousConversion(void);
+    errorCode_t startContinuousConversion(max31865Config &config);
     errorCode_t stopContinuousConversion(void);
 
     /**
@@ -54,6 +66,8 @@ public:
 
     errorCode_t readRegister(max31865Register_t &reg);
     errorCode_t writeRegister(max31865Register_t &reg);
+    max31865::errorCode_t setUpperThresholdInPercent(uint8_t thresholdInPercent);
+    max31865::errorCode_t setLowerThresholdInPercent(uint8_t thresholdInPercent);
 
     void  setSensorType(max31865_sensor_t *sensorType){sensor = sensorType;};
 

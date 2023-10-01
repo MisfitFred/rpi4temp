@@ -5,7 +5,7 @@
 
 float pt100_optimized50to120::convertTemperature(uint16_t adc)
 {
-    float rtd = (float)adc * R0 / 32768.0f;
+    float rtd = (float)adc * R0 / 32767.0f;
     float temperature = (rtd - 100.393f) / 0.3810125f;
     return temperature;
 

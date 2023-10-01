@@ -101,7 +101,7 @@ public:
 
 protected:
     // SPI parameters
-    uint32_t spiSpeed = 0x20000;
+    uint32_t spiSpeed = 0x200000;
     uint32_t spiSpeedReal = 0;
     uint8_t spiDev = 0u;
     spi_cpol_t cpol = SPI_CPOL_0;
