@@ -1,13 +1,63 @@
 #include "max31865.h"
 
-max31865::max31865(spi *spiObj, uint8_t csPin, uint8_t rdyPin) : spiDevice(spiObj), readyPin(rdyPin), csPin(csPin){};
-
 max31865::~max31865() {}
+
+max31865::max31865(max31865Config *config)
+{
+    setConfig(config);
+}
+
+void max31865::setConfig(max31865Config *config)
+{
+    this->spiDevice = config->spiObj;
+    this->csPin = config->csPin;
+    this->spiDevice->setMode(SPI_MODE_1);
+    this->readyPin = config->rdyPin;
+    this->sensor = config->sensorType;
+    this->configRegister.wire = config->threeWireMode ? configRegister_t::wire_t::WIRE_3 : configRegister_t::wire_t::WIRE_2;
+    this->configRegister.filter = config->filter50Hz ? configRegister_t::filter_t::FILTER_50HZ : configRegister_t::filter_t::FILTER_60HZ;
+
+    //@todo: fault detection is not implemented yet
+    this->configRegister.faultDetection = configRegister_t::faultDetection_t::AUTOMATIC_DELAY;
+    this->configRegister.faultStatusClear = configRegister_t::faultStatusClear_t::AUTO_CLEAR_FAULT;
+    
+    this->configRegister.conversionMode = configRegister_t::conversionMode_t::MANUAL;
+    this->configRegister.oneShot = configRegister_t::oneShot_t::SHOT_OFF;
+    this->configRegister.vBias = configRegister_t::vBias_t::OFF;
+
+    this->faultHighThresholdRegister.setThreshold(0x7FFF - (0x7FFF * config->upperThresholdInPercent / 100));
+    this->faultLowThresholdRegister.setThreshold(0x7FFF * config->lowerThresholdInPercent / 100);
+    this->thresholdChanged = true;
+}
+
+max31865::errorCode_t max31865::writeConfigRegisters(void)
+{
+
+    errorCode_t ret_config = writeRegister(this->configRegister);
+    errorCode_t ret_highThreshold = NO_ERROR;
+    errorCode_t ret_lowThreshold = NO_ERROR;
+
+    if (this->thresholdChanged)
+    {
+        ret_highThreshold = writeRegister(this->faultHighThresholdRegister);
+        ret_lowThreshold = writeRegister(this->faultLowThresholdRegister);
+        this->thresholdChanged = false;
+    }
+
+    if (ret_config != NO_ERROR || ret_highThreshold != NO_ERROR || ret_lowThreshold != NO_ERROR)
+    {
+        return CONFIGURATION_FAILED;
+    }
+    else
+    {
+        return NO_ERROR;
+    }
+}
 
 /**
  * @brief read register from max31865
  *
- * @param reg Register to read from, conten is written to reg
+ * @param reg Register to read from, content is written to reg
  *
  */
 max31865::errorCode_t max31865::readRegister(max31865Register_t &reg)
@@ -82,8 +132,15 @@ max31865::errorCode_t max31865::writeRegister(max31865Register_t &reg)
     return ret;
 }
 
-
-
+max31865::errorCode_t max31865::clearFaultStatus(void)
+{
+    errorCode_t ret = NO_ERROR;
+    configRegister_t config;
+    readRegister(config);
+    config.faultStatusClear = configRegister_t::faultStatusClear_t::AUTO_CLEAR_FAULT;
+    writeRegister(config);
+    return ret;
+}
 
 max31865::errorCode_t max31865::setUpperThresholdInPercent(uint8_t thresholdInPercent)
 {
@@ -98,8 +155,9 @@ max31865::errorCode_t max31865::setUpperThresholdInPercent(uint8_t thresholdInPe
         faultHighThresholdRegister_t upperThreshold;
         upperThreshold.setThreshold(0x7FFF - threshold);
         writeRegister(upperThreshold);
-
     }
+    this->thresholdChanged = true;
+
     return ret;
 }
 
@@ -117,12 +175,10 @@ max31865::errorCode_t max31865::setLowerThresholdInPercent(uint8_t thresholdInPe
         lowerThreshold.setThreshold(threshold);
         writeRegister(lowerThreshold);
     }
+    this->thresholdChanged = true;
+
     return ret;
 }
-
-
-
-
 
 max31865::errorCode_t max31865::testConnection(void)
 {
@@ -166,6 +222,9 @@ max31865::errorCode_t max31865::testConnection(void)
     {
         ret = CONNECTION_ERROR;
     }
+
+    thresholdChanged = true;
+    writeConfigRegisters();
 
     return ret;
 }
@@ -211,98 +270,28 @@ float max31865::convertTemperature(uint16_t resistorValue)
 
 max31865::errorCode_t max31865::startOneShotConversion(void)
 {
-    errorCode_t ret = NO_ERROR;
-    configRegister_t config;
-    readRegister(config);
 
-    //@todo: Maybe it makes no sense to check for the ONE_SHOT mode
-    if (config.oneShot == configRegister_t::oneShot_t::SHOT_ON && config.vBias == configRegister_t::vBias_t::ON)
-    {
-        ret = CONVERSION_ALREADY_RUNNING;
-    }
-    else if (config.conversionMode == configRegister_t::conversionMode_t::AUTO && config.vBias == configRegister_t::vBias_t::ON)
-    {
-        ret = CONVERSION_STILL_RUNNING;
-    }
-    {
-        config.conversionMode = configRegister_t::conversionMode_t::MANUAL;
-        config.oneShot = configRegister_t::oneShot_t::SHOT_ON;
-        config.vBias = configRegister_t::vBias_t::ON;
-        writeRegister(config);
-        ret = NO_ERROR;
-    }
-    return ret;
+    this->configRegister.conversionMode = configRegister_t::conversionMode_t::MANUAL;
+    this->configRegister.oneShot = configRegister_t::oneShot_t::SHOT_ON;
+    this->configRegister.vBias = configRegister_t::vBias_t::ON;
+    return writeConfigRegisters();
+
+    conversionRunning = false; // @todo check if this is really correct
+}
+
+bool max31865::isContinuousConversionRunning(void)
+{
+    return this->conversionRunning;
 }
 
 max31865::errorCode_t max31865::startContinuousConversion(void)
 {
-    errorCode_t ret = NO_ERROR;
-    configRegister_t config;
-    readRegister(config);
-    if (config.conversionMode == configRegister_t::conversionMode_t::AUTO && config.vBias == configRegister_t::vBias_t::ON)
-    {
-        ret = CONVERSION_ALREADY_RUNNING;
-    }
-    else
-    {
-        config.conversionMode = configRegister_t::conversionMode_t::AUTO;
-        config.vBias = configRegister_t::vBias_t::ON;
-        writeRegister(config);
-        ret = NO_ERROR;
-    }
-    return ret;
-}
 
-/**
- * @brief apply the configuration to the max318650  clears the fault status and start the conversion,
- * 
- * @param config 
- * @return max31865::errorCode_t 
- */
-max31865::errorCode_t max31865::startContinuousConversion(max31865Config &config)
-{
-    errorCode_t ret = NO_ERROR;
-    configRegister_t configRegWrite;
-    configRegister_t configRegRead;
-
-    configRegWrite.conversionMode = configRegister_t::conversionMode_t::AUTO;
-    configRegWrite.vBias = configRegister_t::vBias_t::ON;
-
-    if (config.threeWireMode)
-    {
-        configRegWrite.wire = configRegister_t::wire_t::WIRE_3;
-    }
-    else
-    {
-        configRegWrite.wire = configRegister_t::wire_t::WIRE_2;
-    }
-
-    if (config.filter50Hz)
-    {
-        configRegWrite.filter = configRegister_t::filter_t::FILTER_50HZ;
-    }
-    else
-    {
-        configRegWrite.filter = configRegister_t::filter_t::FILTER_60HZ;
-    }
-
-    if (config.faultDetectionOn)
-    {
-        configRegWrite.faultDetection = configRegister_t::faultDetection_t::AUTOMATIC_DELAY;
-    }
-    else
-    {
-        configRegWrite.faultDetection = configRegister_t::faultDetection_t::NO_FAULT;
-    }
-
-    configRegWrite.faultStatusClear = configRegister_t::faultStatusClear_t::AUTO_CLEAR_FAULT;
-
-    setLowerThresholdInPercent(config.lowerThresholdInPercent);
-    setUpperThresholdInPercent(config.upperThresholdInPercent);
-    setSensorType(config.sensorType);
-
-
-    return writeRegister(configRegWrite);
+    this->configRegister.conversionMode = configRegister_t::conversionMode_t::AUTO;
+    this->configRegister.oneShot = configRegister_t::oneShot_t::SHOT_OFF;
+    this->configRegister.vBias = configRegister_t::vBias_t::ON;
+    conversionRunning = true;
+    return writeConfigRegisters();
 }
 
 max31865::errorCode_t max31865::stopContinuousConversion(void)
@@ -313,10 +302,9 @@ max31865::errorCode_t max31865::stopContinuousConversion(void)
 
     config.conversionMode = configRegister_t::conversionMode_t::MANUAL;
     config.vBias = configRegister_t::vBias_t::OFF;
-    writeRegister(config);
-    ret = NO_ERROR;
 
-    return ret;
+    conversionRunning = false;
+    return writeRegister(config);
 }
 
 bool max31865::isConversionResultReady(void)

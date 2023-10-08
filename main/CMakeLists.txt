@@ -3,9 +3,10 @@
 if(TARGET_BUILD)
     add_executable(bbq
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pinMux.cpp
     )
 
-    target_link_libraries(bbq PUBLIC max31865 spi)
+    target_link_libraries(bbq PUBLIC tempSens max31865 spi)
     target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4)
 
     target_include_directories(bbq PRIVATE

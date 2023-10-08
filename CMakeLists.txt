@@ -99,7 +99,7 @@ add_subdirectory(doc)
 add_subdirectory(spi)
 add_subdirectory(max31865)
 add_subdirectory(main)
-#add_subdirectory(main)
+add_subdirectory(tempSens)
 
 # set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 # set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

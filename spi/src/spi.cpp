@@ -4,6 +4,8 @@
 //#include <ostream>
 #include <sstream>
 
+//@Bug:  singelton implementation is not correct
+
 spi *spi::instance[2] = {nullptr, nullptr};
 
 spi::spi(int instNum)
