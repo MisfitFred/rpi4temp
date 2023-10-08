@@ -1,5 +1,0 @@
-if(EXISTS "/home/matthias/work/spi_test/build/max31865/configRegister_test[1]_tests.cmake")
-  include("/home/matthias/work/spi_test/build/max31865/configRegister_test[1]_tests.cmake")
-else()
-  add_test(configRegister_test_NOT_BUILT configRegister_test_NOT_BUILT)
-endif()

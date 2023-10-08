@@ -91,5 +91,6 @@
         "list": "cpp",
         "ranges": "cpp",
         "cinttypes": "cpp"
-    }
+    },
+    "cortex-debug.variableUseNaturalFormat": false
 }

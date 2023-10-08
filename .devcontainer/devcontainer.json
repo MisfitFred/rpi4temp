@@ -1,27 +1,51 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
 {
-	"name": "C++",
+	"name": "dev-pico-sdk",
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"features": {
-		"ghcr.io/devcontainers/features/python:1": {
-			"installTools": true,
-			"version": "3.11"
-		},
-		"ghcr.io/devcontainers-contrib/features/ninja-asdf:2": {
-			"version": "latest"
-		}
-	},
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/dev/src,type=bind",
+    "mounts": ["source=${localEnv:HOME}/.profile,target=/home/dev/.profile,type=bind,consistency=cached",
+               "source=${localEnv:HOME}/.bashrc,target=/home/dev/.bashrc,type=bind,consistency=cached"],
+    "userEnvProbe": "loginInteractiveShell",
+	"workspaceFolder": "/home/dev/src",
+
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"josetr.cmake-language-support-vscode"
+				"ms-vscode.cpptools-themes",
+				"ms-vscode-remote.remote-containers",
+				"GitHub.codespaces",
+				"ms-vscode-remote.remote-ssh",
+				"ms-vscode-remote.remote-ssh-edit",
+				"ms-vscode.remote-server",
+				"ms-vscode-remote.vscode-remote-extensionpack",
+				"ms-vscode.remote-explorer",
+				"ms-vscode.remote-repositories",
+				"ms-vscode.cpptools",
+				"ms-vscode.cpptools-extension-pack",
+				"ms-vscode.cmake-tools",
+				"cheshirekow.cmake-format",
+				"streetsidesoftware.code-spell-checker",
+				"ms-azuretools.vscode-docker",
+				"github.vscode-github-actions",
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"ms-vscode.vscode-github-issue-notebooks",
+				"bierner.github-markdown-preview",
+				"GitHub.vscode-pull-request-github",
+				"eamodio.gitlens",
+				"yzhang.markdown-all-in-one",
+				"jebbs.plantuml"
 			]
 		}
 	}
+    
 
+    //align user
+    //"containerUser": "${localUserUid}:${localUserGid}"
+    
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
 

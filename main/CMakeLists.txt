@@ -1,13 +1,22 @@
 
-add_library (spi INTERFACE)
 
-target_sources(spi INTERFACE
-	${CMAKE_CURRENT_SOURCE_DIR}/src/spi.cpp    
-	${CMAKE_CURRENT_SOURCE_DIR}/inc/spi.h     
+if(TARGET_BUILD)
+    add_executable(bbq
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pinMux.cpp
+    )
 
-)
-target_include_directories (spi  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
-target_link_libraries(spi  INTERFACE pico_stdlib hardware_spi) 
+    target_link_libraries(bbq PUBLIC tempSens max31865 spi)
+    target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4)
+
+    target_include_directories(bbq PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        )
+
+    pico_add_extra_outputs(bbq)
+endif()
+
+
 
 #*********************************** UNIT TESTS ***************************************
 # unit test executable: spi_test
