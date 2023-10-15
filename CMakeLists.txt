@@ -15,8 +15,7 @@ else()
     # Pull in SDK (must be before project)
     include(pico_sdk_import.cmake)
 
-    #set(FREERTOS_KERNEL_PATH  $ENV{FREERTOS_KERNEL_PATH})
-
+    set(PICO_BOARD pico_w)
     include(FreeRTOS_Kernel_import.cmake)
 endif()
 
@@ -96,10 +95,7 @@ add_subdirectory(doc)
 
 #add_subdirectory(log)
 
-add_subdirectory(spi)
-add_subdirectory(max31865)
-add_subdirectory(main)
-add_subdirectory(tempSens)
+add_subdirectory(components)
 
 # set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 # set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

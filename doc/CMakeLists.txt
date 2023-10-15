@@ -1,4 +1,3 @@
-
 find_package(Doxygen)
 
 if (DOXYGEN_FOUND)
@@ -22,14 +21,15 @@ if (DOXYGEN_FOUND)
 
     set(DOXYGEN_GENERATE_XML YES)
 
-
     set(Sphinx_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
-    find_package(Sphinx REQUIRED)
 
-    set(SPHINX_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source)
-    set(SPHINX_BIN ${CMAKE_CURRENT_BINARY_DIR}/sphinx)
+    find_package(Sphinx)
 
-    add_custom_target(Sphinx 
+    if (SPHINX_FOUND)
+        set(SPHINX_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source)
+        set(SPHINX_BIN ${CMAKE_CURRENT_BINARY_DIR}/sphinx)
+    
+        add_custom_target(Sphinx 
                     COMMAND
                     ${SPHINX_EXEC} -b html
                     -Dbreathe_projects.loserCE=${DOXYGEN_OUTPUT_DIRECTORY}/xml
@@ -37,4 +37,5 @@ if (DOXYGEN_FOUND)
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                     DEPENDS Doxygen
                     COMMENT "Generating documentation with Sphinx")
+    endif()
 endif()
