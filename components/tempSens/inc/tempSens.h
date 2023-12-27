@@ -63,7 +63,7 @@ private:
     static const uint32_t scheduleCycleTime = 1000; //ms
     uint8_t numOfSensors = 4;
 
-    // singelton, hide all constructs
+    // singleton, hide all constructs
     tempSens(void);
     tempSens(tempSens const &);
     void operator=(tempSens const &);

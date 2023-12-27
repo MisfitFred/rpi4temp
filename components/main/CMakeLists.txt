@@ -4,7 +4,7 @@ if(TARGET_BUILD)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/pinMux.cpp
     )
 
-    target_link_libraries(bbq PUBLIC tempSens max31865 spi)
+    target_link_libraries(bbq PUBLIC tempSens max31865 spi udp_beacon)
     target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4)
     
 

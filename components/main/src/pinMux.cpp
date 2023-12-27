@@ -19,6 +19,10 @@ static void initRdyPin(uint8_t pin)
     gpio_set_dir(pin, GPIO_IN);
 }
 
+/**
+ * @brief initialize the pin mux
+ * 
+ */
 void init_PinMux(void)
 {
 

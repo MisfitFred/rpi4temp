@@ -7,6 +7,8 @@
 #include "spi.h"
 #include "tempSens.h"
 
+#include "udp_beacon.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -15,11 +17,16 @@
 
 int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unused)))
 {
+
     stdio_init_all();
     init_PinMux();
+
+    udp_beacon_init();
    
+    // create a PT100 sensor object able to handle several max devices,  optimized for 50 to 120 degree celsius
     pt100_optimized50to120 *myPT100 = new pt100_optimized50to120();
     spi *mySpiObj = spi::getInstance(0);
+
     struct max31865Config myConfig[4] = {
         {.spiObj = mySpiObj,
          .csPin = SPI0_CS0_PIN,
@@ -58,12 +65,13 @@ int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unu
          .filter50Hz = true,
          .faultDetectionOn = false}};
 
-
+/*
     tempSens *myTempSens = tempSens::getInstance();
     myTempSens->setConfig(myConfig, 4);
     myTempSens->startSchedule();
+*/
 
-
+    // freeRTOS scheduler start
     vTaskStartScheduler();
 
     while (1)

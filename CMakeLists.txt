@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.22)
 
 option(ENABLE_UNITTEST "Enable unit test" OFF)
 
+set (PICO_DEOPTIMIZED_DEBUG true)
+
 if(ENABLE_UNITTEST)
     message(STATUS "Enable unit test")
     enable_testing()
