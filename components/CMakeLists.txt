@@ -1,5 +1,7 @@
+add_subdirectory(common_cfg)
 add_subdirectory(spi)
 add_subdirectory(max31865)
 add_subdirectory(main)
 add_subdirectory(tempSens)
 add_subdirectory(udp_beacon)
+add_subdirectory(wifi_manager)

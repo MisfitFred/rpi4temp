@@ -14,14 +14,21 @@
  *  - remove poll implementation
  */
 
-
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void udp_beacon_init(void);
-void upd_beacon_deinit(void);
+    typedef enum
+    {
+        WIFI_MANAGER_ERROR_NONE = 0,
+        WIFI_MANAGER_ERROR_UNINITIALIZED = -1,
+        WIFI_MANAGER_ERROR_MEM = -2,
 
+    } wifi_manager_error_t;
+    wifi_manager_error_t wifi_manager_init(void);
+    wifi_manager_error_t wifi_manager_start(void);
+    wifi_manager_error_t wifi_manager_stop(void);
 #ifdef __cplusplus
 }
 #endif

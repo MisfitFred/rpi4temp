@@ -28,25 +28,36 @@
 #include "lwip/ip_addr.h"
 #include "lwip/dhcp.h"
 
-#include "udp_beacon.h"
+#include "wifi_manager.h"
 
-#define UDP_PORT 4444
-#define BEACON_MSG_LEN_MAX 127u
-#define BEACON_TARGET "255.255.255.255"
-#define UDP_TASK_PRIORITY (tskIDLE_PRIORITY + 1UL)
+const UBaseType_t WIFI_MANAGER_TASK_PRIORITY = tskIDLE_PRIORITY + 2UL;
+
+typedef enum
+{
+    WIFI_CONNECTION_PROCEDURE_STATUS_IDLE,
+    WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING,
+    WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED,
+    WIFI_CONNECTION_PROCEDURE_STATUS_FAILED,
+    WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH
+} wifi_connection_procedure_status_t;
+
+typedef enum
+{
+    WIFI_MANAGER_UNINITIALIZED,
+    WIFI_MANAGER_STOPPED,
+    WIFI_MANAGER_INIT,
+    WIFI_MANAGER_RUN,
+    WIFI_MANAGER_DEINIT
+} wifi_manager_state_t;
 
 const uint32_t WIFI_FAILED_CONNECTION_WAIT_TIME_TILL_RETRY_MS = 10000;
 const uint32_t WIFI_FAILED_BAD_AUTH_WAIT_TIME_TILL_RETRY_MS = 120000;
 const uint32_t WIFI_CONNECTING_TIMEOUT_MS = 30000;
 
-const uint32_t BEACON_TASK_INTERVAL_MS = 100;
+const uint32_t WIFI_MANAGER_TASK_INTERVAL_MS = 100;
 
-// Calculate the number of times the delay_ms value will fit into the BEACON_TASK_INTERVAL_MS
-const uint32_t BEACON_RUNNABLE_DELAY_COUNT_VALUE(const uint32_t delay_ms) { return delay_ms / BEACON_TASK_INTERVAL_MS; }
+const uint32_t WIFI_MANAGER_RUNNABLE_DELAY_COUNT_VALUE(const uint32_t delay_ms) { return delay_ms / WIFI_MANAGER_TASK_INTERVAL_MS; }
 
-/**
- * @brief Structure representing the state of the UDP beacon.
- */
 typedef struct
 {
     int8_t linkStatus;
@@ -55,28 +66,20 @@ typedef struct
     const uint16_t BADAUTH_MAX_CONNECTION_RETRIES;
     uint8_t badAuthRetries;
     uint32_t timeoutCounter;
-} cyw43_connection_t;
+} wifi_connection_t;
 
 typedef struct
 {
-    TaskHandle_t *task;            /**< Pointer to the udp task */
-    struct udp_pcb *pcb;           /**< Pointer to the udp PCB */
-    ip_addr_t addr;                /**< target address */
-    int counter;                   /**< counter for the amount of beacon message */
-    bool initialised;              /**< Flag indicating if the UDP beacon is initialised */
-    bool running;                  /**< Flag to to keep the UDP beacon running */
-    cyw43_connection_t connection; /**< Connection state */
+    wifi_manager_state_t state;   /**< State of the wifi manager */
+    TaskHandle_t *task;           /**< Pointer to the wifi manager task */
+    wifi_connection_t connection; /**< Connection state */
 
     bool connected; /**< Flag indicating if the UDP beacon is connected */
-} udp_beacon_state_t;
+} wifi_manager_attributes_t;
 
-static udp_beacon_state_t this = {
+static wifi_manager_attributes_t this = {
+    .state = WIFI_MANAGER_UNINITIALIZED,
     .task = NULL,
-    .pcb = NULL,
-    .addr = {0},
-    .counter = 0,
-    .initialised = false,
-    .running = false,
     .connection = {
         .linkStatus = CYW43_LINK_DOWN,
         .connectionRetries = 0,
@@ -84,47 +87,38 @@ static udp_beacon_state_t this = {
         .badAuthRetries = 0,
         .timeoutCounter = 0,
     },
-
-    .connected = false,
 };
 
-void udp_beacon_task(__unused void *params);
+void wifi_manager_task(__unused void *params);
 
 /**
- * @brief Initialization of udp beacon
+ * @brief Initialization of wifi manager
+ *
+ *  Creates the wifi manager task
  *
  */
-void udp_beacon_init(void)
+wifi_manager_error_t wifi_manager_init(void)
 {
-    this.running = true;
-    xTaskCreate(udp_beacon_task, "udp beacon task", configMINIMAL_STACK_SIZE, NULL, UDP_TASK_PRIORITY, this.task);
-}
-
-static void wifi_init_run(void)
-{
-
-    this.initialised = true;
-
-    if (cyw43_arch_init())
+    if (WIFI_MANAGER_UNINITIALIZED == this.state)
     {
-        printf("failed to initialise\n");
-        this.initialised = false;
+        if (pdPASS == xTaskCreate(wifi_manager_task, "wifi manager task", configMINIMAL_STACK_SIZE, NULL, WIFI_MANAGER_TASK_PRIORITY, this.task))
+        {
+            this.state = WIFI_MANAGER_STOPPED;
+        }
+        else
+        {
+            return WIFI_MANAGER_ERROR_MEM;
+        }
     }
-
-    cyw43_arch_enable_sta_mode();
+    return WIFI_MANAGER_ERROR_NONE;
 }
 
-void wifi_superviseConnection_run(void)
+/**
+ * @brief  Supervise the connection procedure and keep the device connected to the wifi
+ *
+ */
+static void wifi_superviseConnection_run(void)
 {
-    typedef enum
-    {
-        WIFI_CONNECTION_PROCEDURE_STATUS_IDLE,
-        WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING,
-        WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_DISCONNECTED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_FAILED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH
-    } wifi_connection_procedure_status_t;
 
     static wifi_connection_procedure_status_t wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_IDLE;
 
@@ -174,12 +168,11 @@ void wifi_superviseConnection_run(void)
         else if (CYW43_LINK_JOIN == this.connection.linkStatus || CYW43_LINK_NOIP == this.connection.linkStatus)
         {
             // still connecting check for timeout @todo
-            if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_CONNECTING_TIMEOUT_MS))
+            if (this.connection.timeoutCounter > WIFI_MANAGER_RUNNABLE_DELAY_COUNT_VALUE(WIFI_CONNECTING_TIMEOUT_MS))
             {
                 // timeout
                 this.connection.timeoutCounter = 0;
-                asdfasdf
-                    wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
+                wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
             }
             else
             {
@@ -219,7 +212,7 @@ void wifi_superviseConnection_run(void)
             wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH;
         }
         // wait for timeout
-        else if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_CONNECTION_WAIT_TIME_TILL_RETRY_MS))
+        else if (this.connection.timeoutCounter > WIFI_MANAGER_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_CONNECTION_WAIT_TIME_TILL_RETRY_MS))
         {
             // timeout start a retry
             this.connection.timeoutCounter = 0;
@@ -239,7 +232,7 @@ void wifi_superviseConnection_run(void)
         // do nothing
 
         this.connection.timeoutCounter++;
-        if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_BAD_AUTH_WAIT_TIME_TILL_RETRY_MS))
+        if (this.connection.timeoutCounter > WIFI_MANAGER_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_BAD_AUTH_WAIT_TIME_TILL_RETRY_MS))
         {
             // timeout start a retry
             this.connection.timeoutCounter = 0;
@@ -260,82 +253,109 @@ void wifi_superviseConnection_run(void)
 }
 
 /**
- * @brief Initialization of udp beacon after FreeRTOS started
- *
- * @pre Must be called in task context.
- * @note User must not call this function directly, because it is done by udp_beacon_task itself.
- */
-void udp_beacon_init_run(void)
-{
-
-    this.pcb = udp_new();
-    ipaddr_aton(BEACON_TARGET, &this.addr);
-    this.counter = 0;
-}
-
-/**
- * @brief Deinitialization of udp beacon
+ * @brief Initialization of wifi manager
  *
  * @pre Must be called in task context
  */
-
-static void udp_beacon_deinit_run(void)
+static void wifi_init_run(void)
 {
-    udp_remove(this.pcb);
-    cyw43_arch_disable_sta_mode();
-    cyw43_arch_deinit();
-}
+    int32_t result = 0;
 
-/**
- * @brief Deinitialization of udp beacon after FreeRTOS stopped
- *
- */
-void udp_beacon_deinit(void)
-{
-    this.running = false;
-}
+    //result = cyw43_arch_init();
+    cyw43_arch_enable_sta_mode();
 
-/**
- * @brief Run udp beacon
- *
- * @pre Must be called in task context
- */
-static void udp_beacon_run(void)
-{
-
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, BEACON_MSG_LEN_MAX + 1, PBUF_RAM);
-    char *req = (char *)p->payload;
-    memset(req, 0, BEACON_MSG_LEN_MAX + 1);
-    snprintf(req, BEACON_MSG_LEN_MAX, "%d", this.counter);
-    err_t er = udp_sendto(this.pcb, p, &(this.addr), UDP_PORT);
-    pbuf_free(p);
-    if (er != ERR_OK)
+    if (result != 0)
     {
-        printf("Failed to send UDP packet! error=%d", er);
+        this.state = WIFI_MANAGER_STOPPED;
     }
     else
     {
-        printf("Sent packet %d\n", this.counter);
-        this.counter++;
+        this.state = WIFI_MANAGER_RUN;
+    }
+}
+/**
+ * @brief Deinitialization of wifi manager
+ *
+ * @pre Must be called in task context
+ */
+
+static void wifi_manager_deinit_run(void)
+{
+
+    cyw43_arch_disable_sta_mode();
+    cyw43_arch_deinit();
+
+    this.state = WIFI_MANAGER_STOPPED;
+}
+
+/**
+ * @brief Stop the wifi manager
+ *
+ *  wifi manager will deinitialize the wifi but keep the task running. To start the wifi manager again call wifi_manager_start()
+ */
+wifi_manager_error_t wifi_manager_stop(void)
+{
+    if (this.state != WIFI_MANAGER_UNINITIALIZED)
+    {
+        if (this.state != WIFI_MANAGER_STOPPED)
+        {
+            this.state = WIFI_MANAGER_DEINIT;
+        }
+        return WIFI_MANAGER_ERROR_NONE;
+    }
+    else
+    {
+        return WIFI_MANAGER_ERROR_UNINITIALIZED;
     }
 }
 
-void udp_beacon_task(__unused void *params)
+/**
+ * @brief Start the wifi manager
+ *
+ * wifi manager will initialize the wifi, to stop the wifi manager call wifi_manager_stop()
+ */
+wifi_manager_error_t wifi_manager_start(void)
 {
-    wifi_init_run();
-    udp_beacon_init_run();
-
-    while (this.running && this.initialised)
+    if (this.state != WIFI_MANAGER_UNINITIALIZED)
     {
-        wifi_superviseConnection_run();
-
-        if (this.connection.linkStatus == CYW43_LINK_UP)
+        if (this.state == WIFI_MANAGER_STOPPED)
         {
-            udp_beacon_run();
+            this.state = WIFI_MANAGER_INIT;
         }
-        vTaskDelay(BEACON_TASK_INTERVAL_MS);
+        return WIFI_MANAGER_ERROR_NONE;
     }
+    else
+    {
+        return WIFI_MANAGER_ERROR_UNINITIALIZED;
+    }
+}
 
-    udp_beacon_deinit_run();
+/**
+ * @brief  Task for the wifi manager
+ *
+ * @param params
+ */
+void wifi_manager_task(__unused void *params)
+{
+    while (true)
+    {
+
+        if (this.state == WIFI_MANAGER_INIT)
+        {
+            wifi_init_run();
+        }
+
+        if (this.state == WIFI_MANAGER_RUN)
+        {
+            wifi_superviseConnection_run();
+        }
+
+        if (this.state == WIFI_MANAGER_DEINIT)
+        {
+            wifi_manager_deinit_run();
+        }
+
+        vTaskDelay(WIFI_MANAGER_TASK_INTERVAL_MS);
+    }
     vTaskDelete(NULL);
 }

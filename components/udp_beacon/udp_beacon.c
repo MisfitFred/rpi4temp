@@ -30,233 +30,62 @@
 
 #include "udp_beacon.h"
 
-#define UDP_PORT 4444
-#define BEACON_MSG_LEN_MAX 127u
-#define BEACON_TARGET "255.255.255.255"
-#define UDP_TASK_PRIORITY (tskIDLE_PRIORITY + 1UL)
+const uint16_t UDP_BEACON_PORT = 4444;
+const uint16_t UDP_BEACON_MSG_LEN_MAX = 127;
+const char* UDP_BEACON_TARGET ="255.255.255.255";
+const UBaseType_t UDP_TASK_PRIORITY = tskIDLE_PRIORITY + 1UL;
 
-const uint32_t WIFI_FAILED_CONNECTION_WAIT_TIME_TILL_RETRY_MS = 10000;
-const uint32_t WIFI_FAILED_BAD_AUTH_WAIT_TIME_TILL_RETRY_MS = 120000;
-const uint32_t WIFI_CONNECTING_TIMEOUT_MS = 30000;
+typedef enum
+{
+    UDP_BEACON_UNINITIALIZED,
+    UDP_BEACON_STOPPED,
+    UDP_BEACON_INIT,
+    UDP_BEACON_RUN,
+    UDP_BEACON_DEINIT
+} udp_beacon_state_t;
 
 const uint32_t BEACON_TASK_INTERVAL_MS = 100;
 
-// Calculate the number of times the delay_ms value will fit into the BEACON_TASK_INTERVAL_MS
 const uint32_t BEACON_RUNNABLE_DELAY_COUNT_VALUE(const uint32_t delay_ms) { return delay_ms / BEACON_TASK_INTERVAL_MS; }
 
-/**
- * @brief Structure representing the state of the UDP beacon.
- */
 typedef struct
 {
-    int8_t linkStatus;
+    TaskHandle_t *task;       /**< Pointer to the udp task */
+    struct udp_pcb *pcb;      /**< Pointer to the udp PCB */
+    ip_addr_t addr;           /**< target address */
+    int counter;              /**< counter for the amount of beacon message */
+    udp_beacon_state_t state; /**< State of the udp beacon */
+} udp_beacon_attributes_t;
 
-    uint16_t connectionRetries;
-    const uint16_t BADAUTH_MAX_CONNECTION_RETRIES;
-    uint8_t badAuthRetries;
-    uint32_t timeoutCounter;
-} cyw43_connection_t;
-
-typedef struct
-{
-    TaskHandle_t *task;            /**< Pointer to the udp task */
-    struct udp_pcb *pcb;           /**< Pointer to the udp PCB */
-    ip_addr_t addr;                /**< target address */
-    int counter;                   /**< counter for the amount of beacon message */
-    bool initialised;              /**< Flag indicating if the UDP beacon is initialised */
-    bool running;                  /**< Flag to to keep the UDP beacon running */
-    cyw43_connection_t connection; /**< Connection state */
-
-    bool connected; /**< Flag indicating if the UDP beacon is connected */
-} udp_beacon_state_t;
-
-static udp_beacon_state_t this = {
+static udp_beacon_attributes_t this = {
     .task = NULL,
     .pcb = NULL,
     .addr = {0},
     .counter = 0,
-    .initialised = false,
-    .running = false,
-    .connection = {
-        .linkStatus = CYW43_LINK_DOWN,
-        .connectionRetries = 0,
-        .BADAUTH_MAX_CONNECTION_RETRIES = 3,
-        .badAuthRetries = 0,
-        .timeoutCounter = 0,
-    },
-
-    .connected = false,
-};
+    .state = UDP_BEACON_UNINITIALIZED};
 
 void udp_beacon_task(__unused void *params);
 
 /**
  * @brief Initialization of udp beacon
  *
+ *  create the udp beacon task
+ *
  */
-void udp_beacon_init(void)
+udp_beacon_error_t udp_beacon_init(void)
 {
-    this.running = true;
-    xTaskCreate(udp_beacon_task, "udp beacon task", configMINIMAL_STACK_SIZE, NULL, UDP_TASK_PRIORITY, this.task);
-}
-
-static void wifi_init_run(void)
-{
-
-    this.initialised = true;
-
-    if (cyw43_arch_init())
+    if (this.state == UDP_BEACON_UNINITIALIZED)
     {
-        printf("failed to initialise\n");
-        this.initialised = false;
+        if (pdPASS == xTaskCreate(udp_beacon_task, "udp beacon task", configMINIMAL_STACK_SIZE, NULL, UDP_TASK_PRIORITY, this.task))
+        {
+            this.state = UDP_BEACON_STOPPED;
+        }
+        else
+        {
+            return UDP_BEACON_ERROR_MEM;
+        }
     }
-
-    cyw43_arch_enable_sta_mode();
-}
-
-void wifi_superviseConnection_run(void)
-{
-    typedef enum
-    {
-        WIFI_CONNECTION_PROCEDURE_STATUS_IDLE,
-        WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING,
-        WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_DISCONNECTED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_FAILED,
-        WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH
-    } wifi_connection_procedure_status_t;
-
-    static wifi_connection_procedure_status_t wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_IDLE;
-
-    static const uint8_t STATE_HISTORY_SIZE = 50;                                                         // remove only for debugging purposes
-    static uint8_t stateHistoryIndex = 0;                                                                 // remove only for debugging purposes
-    static wifi_connection_procedure_status_t stateHistory[50] = {WIFI_CONNECTION_PROCEDURE_STATUS_IDLE}; // remove only for debugging purposes
-
-    this.connection.linkStatus = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
-
-    switch (wifiConnectionProcedureStatus)
-    {
-    case WIFI_CONNECTION_PROCEDURE_STATUS_IDLE:
-        if (CYW43_LINK_DOWN != this.connection.linkStatus)
-        {
-            // looks like we are in the wrong state, however the appropriate handle is taken care of in failure state
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-        }
-        else
-        {
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING;
-            if (cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK))
-            {
-                // failed to start connection
-                wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-            }
-        }
-        break;
-
-    case WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING:
-        if (CYW43_LINK_UP == this.connection.linkStatus)
-        {
-            // We are connected and got an IP address
-            this.connection.badAuthRetries = 0;
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED;
-        }
-        else if (CYW43_LINK_BADAUTH == this.connection.linkStatus)
-        {
-            // bad authentication
-            this.connection.badAuthRetries++;
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-        }
-        else if (CYW43_LINK_DOWN > this.connection.linkStatus)
-        {
-            // something went wrong
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-        }
-        else if (CYW43_LINK_JOIN == this.connection.linkStatus || CYW43_LINK_NOIP == this.connection.linkStatus)
-        {
-            // still connecting check for timeout @todo
-            if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_CONNECTING_TIMEOUT_MS))
-            {
-                // timeout
-                this.connection.timeoutCounter = 0;
-                asdfasdf
-                    wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-            }
-            else
-            {
-                this.connection.timeoutCounter++;
-            }
-        }
-        else
-        {
-            // something went wrong
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-        }
-        break;
-
-    case WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED:
-        if (CYW43_LINK_UP == this.connection.linkStatus)
-        {
-            // We are connected and got an IP address
-            this.connection.badAuthRetries = 0;
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED;
-        }
-        else
-        {
-            // something went wrong
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-        }
-        break;
-
-    case WIFI_CONNECTION_PROCEDURE_STATUS_FAILED:
-        if (CYW43_LINK_UP == this.connection.linkStatus)
-        {
-            // We are connected and got an IP address
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTED;
-        } // max authentication failures reached
-        else if (this.connection.badAuthRetries > this.connection.BADAUTH_MAX_CONNECTION_RETRIES)
-        {
-            // max authentication failures reached
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH;
-        }
-        // wait for timeout
-        else if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_CONNECTION_WAIT_TIME_TILL_RETRY_MS))
-        {
-            // timeout start a retry
-            this.connection.timeoutCounter = 0;
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING;
-            if (cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK))
-            {
-                // failed to start connection
-                wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_FAILED;
-            }
-        }
-        else
-        {
-            this.connection.timeoutCounter++;
-        }
-        break;
-    case WIFI_CONNECTION_PROCEDURE_STATUS_FAILED_BAD_AUTH:
-        // do nothing
-
-        this.connection.timeoutCounter++;
-        if (this.connection.timeoutCounter > BEACON_RUNNABLE_DELAY_COUNT_VALUE(WIFI_FAILED_BAD_AUTH_WAIT_TIME_TILL_RETRY_MS))
-        {
-            // timeout start a retry
-            this.connection.timeoutCounter = 0;
-            wifiConnectionProcedureStatus = WIFI_CONNECTION_PROCEDURE_STATUS_CONNECTING;
-        }
-        break;
-    default:
-        // do nothing
-        break;
-    };
-
-    stateHistory[stateHistoryIndex] = wifiConnectionProcedureStatus;
-    stateHistoryIndex++;
-    if (stateHistoryIndex >= STATE_HISTORY_SIZE)
-    {
-        stateHistoryIndex = 0;
-    }
+    return UDP_BEACON_ERROR_NONE;
 }
 
 /**
@@ -268,9 +97,13 @@ void wifi_superviseConnection_run(void)
 void udp_beacon_init_run(void)
 {
 
+    cyw43_arch_lwip_begin();
     this.pcb = udp_new();
-    ipaddr_aton(BEACON_TARGET, &this.addr);
+    cyw43_arch_lwip_end();
+    ipaddr_aton(UDP_BEACON_TARGET, &this.addr);
     this.counter = 0;
+
+    this.state = UDP_BEACON_RUN;
 }
 
 /**
@@ -281,18 +114,51 @@ void udp_beacon_init_run(void)
 
 static void udp_beacon_deinit_run(void)
 {
+    cyw43_arch_lwip_begin();
     udp_remove(this.pcb);
-    cyw43_arch_disable_sta_mode();
-    cyw43_arch_deinit();
+    cyw43_arch_lwip_end();
 }
 
 /**
- * @brief Deinitialization of udp beacon after FreeRTOS stopped
+ * @brief Stop the wifi manager
  *
+ *  wifi manager will deinitialize the wifi but keep the task running. To start the wifi manager again call udp_beacon_start()
  */
-void udp_beacon_deinit(void)
+udp_beacon_error_t udp_beacon_stop(void)
 {
-    this.running = false;
+    if (this.state != UDP_BEACON_UNINITIALIZED)
+    {
+        if (this.state != UDP_BEACON_STOPPED)
+        {
+            this.state = UDP_BEACON_DEINIT;
+        }
+        return UDP_BEACON_ERROR_NONE;
+    }
+    else
+    {
+        return UDP_BEACON_ERROR_UNINITIALIZED;
+    }
+}
+
+/**
+ * @brief Start the wifi manager
+ *
+ * wifi manager will initialize the wifi, to stop the wifi manager call udp_beacon_stop()
+ */
+udp_beacon_error_t udp_beacon_start(void)
+{
+    if (this.state != UDP_BEACON_UNINITIALIZED)
+    {
+        if (this.state == UDP_BEACON_STOPPED)
+        {
+            this.state = UDP_BEACON_INIT;
+        }
+        return UDP_BEACON_ERROR_NONE;
+    }
+    else
+    {
+        return UDP_BEACON_ERROR_UNINITIALIZED;
+    }
 }
 
 /**
@@ -303,39 +169,50 @@ void udp_beacon_deinit(void)
 static void udp_beacon_run(void)
 {
 
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, BEACON_MSG_LEN_MAX + 1, PBUF_RAM);
-    char *req = (char *)p->payload;
-    memset(req, 0, BEACON_MSG_LEN_MAX + 1);
-    snprintf(req, BEACON_MSG_LEN_MAX, "%d", this.counter);
-    err_t er = udp_sendto(this.pcb, p, &(this.addr), UDP_PORT);
-    pbuf_free(p);
-    if (er != ERR_OK)
+    if (CYW43_LINK_UP == cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA))
     {
-        printf("Failed to send UDP packet! error=%d", er);
-    }
-    else
-    {
-        printf("Sent packet %d\n", this.counter);
-        this.counter++;
+
+        cyw43_arch_lwip_begin();
+        struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, UDP_BEACON_MSG_LEN_MAX + 1, PBUF_RAM);
+        char *req = (char *)p->payload;
+        memset(req, 0, UDP_BEACON_MSG_LEN_MAX + 1);
+        snprintf(req, UDP_BEACON_MSG_LEN_MAX, "%d", this.counter);
+        err_t er = udp_sendto(this.pcb, p, &(this.addr), UDP_BEACON_PORT);
+        pbuf_free(p);
+        cyw43_arch_lwip_end();
+        if (er != ERR_OK)
+        {
+            printf("Failed to send UDP packet! error=%d", er);
+        }
+        else
+        {
+            printf("Sent packet %d\n", this.counter);
+            this.counter++;
+        }
     }
 }
 
 void udp_beacon_task(__unused void *params)
 {
-    wifi_init_run();
-    udp_beacon_init_run();
 
-    while (this.running && this.initialised)
+    while (true)
     {
-        wifi_superviseConnection_run();
+        if (this.state == UDP_BEACON_INIT)
+        {
+            udp_beacon_init_run();
+        }
 
-        if (this.connection.linkStatus == CYW43_LINK_UP)
+        if (this.state == UDP_BEACON_RUN)
         {
             udp_beacon_run();
+        }
+
+        if (this.state == UDP_BEACON_DEINIT)
+        {
+            udp_beacon_deinit_run();
         }
         vTaskDelay(BEACON_TASK_INTERVAL_MS);
     }
 
-    udp_beacon_deinit_run();
     vTaskDelete(NULL);
 }

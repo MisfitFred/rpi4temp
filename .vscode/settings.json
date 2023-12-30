@@ -94,7 +94,8 @@
         "netif.h": "c",
         "cyw43.h": "c",
         "cyw43_arch.h": "c",
-        "arch_freertos.h": "c"
+        "arch_freertos.h": "c",
+        "wifi_manager.h": "c"
     },
     "cortex-debug.variableUseNaturalFormat": false
 }

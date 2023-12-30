@@ -19,8 +19,15 @@
 extern "C" {
 #endif
 
-void udp_beacon_init(void);
-void upd_beacon_deinit(void);
+typedef enum {
+    UDP_BEACON_ERROR_NONE = 0,
+    UDP_BEACON_ERROR_UNINITIALIZED = -1,
+    UDP_BEACON_ERROR_MEM = -2,
+}udp_beacon_error_t;
+
+udp_beacon_error_t udp_beacon_init(void);
+udp_beacon_error_t udp_beacon_start(void);
+udp_beacon_error_t upd_beacon_stop(void);
 
 #ifdef __cplusplus
 }

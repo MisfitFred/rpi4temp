@@ -4,8 +4,14 @@ if(TARGET_BUILD)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/pinMux.cpp
     )
 
-    target_link_libraries(bbq PUBLIC tempSens max31865 spi udp_beacon)
-    target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4)
+    target_link_libraries(bbq PUBLIC 
+                                tempSens 
+                                max31865 
+                                spi 
+                                udp_beacon
+                                wifi_manager
+    )
+    target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4 pico_cyw43_arch_lwip_sys_freertos)
     
 
     target_include_directories(bbq PRIVATE

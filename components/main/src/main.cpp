@@ -8,21 +8,33 @@
 #include "tempSens.h"
 
 #include "udp_beacon.h"
+#include "wifi_manager.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 
 #include "pinMux.h"
 
-
+#include "pico/cyw43_arch.h"
+void main_init_task(void *pvParameters);
 int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unused)))
 {
 
     stdio_init_all();
     init_PinMux();
 
-    udp_beacon_init();
-   
+    // task handler
+    TaskHandle_t task;
+
+    if (pdPASS == xTaskCreate(main_init_task, "main init task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2UL, &task))
+    {
+        printf("udp beacon task created\n");
+    }
+    else
+    {
+        printf("udp beacon task creation failed\n");
+    }
+
     // create a PT100 sensor object able to handle several max devices,  optimized for 50 to 120 degree celsius
     pt100_optimized50to120 *myPT100 = new pt100_optimized50to120();
     spi *mySpiObj = spi::getInstance(0);
@@ -65,11 +77,11 @@ int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unu
          .filter50Hz = true,
          .faultDetectionOn = false}};
 
-/*
-    tempSens *myTempSens = tempSens::getInstance();
-    myTempSens->setConfig(myConfig, 4);
-    myTempSens->startSchedule();
-*/
+    /*
+        tempSens *myTempSens = tempSens::getInstance();
+        myTempSens->setConfig(myConfig, 4);
+        myTempSens->startSchedule();
+    */
 
     // freeRTOS scheduler start
     vTaskStartScheduler();
@@ -78,4 +90,19 @@ int main(int argc __attribute__((unused)), char const *argv[] __attribute__((unu
     {
         sleep_ms(1000);
     }
+}
+
+void main_init_task(void *pvParameters)
+{
+    /* initialize cyw43 and prevent other task be called in between */
+
+    cyw43_arch_init();
+
+    udp_beacon_init();
+    wifi_manager_init();
+
+    udp_beacon_start();
+    wifi_manager_start();
+
+    vTaskDelete(NULL);
 }
