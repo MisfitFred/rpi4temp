@@ -9,6 +9,7 @@
 
 #include "udp_beacon.h"
 #include "wifi_manager.h"
+#include "tempProvider.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -100,6 +101,7 @@ void main_init_task(void *pvParameters)
 
     udp_beacon_init();
     wifi_manager_init();
+    tempProvider_start();
 
     udp_beacon_start();
     wifi_manager_start();

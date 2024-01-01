@@ -22,18 +22,14 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
-#include "lwip/pbuf.h"
-#include "lwip/udp.h"
-#include "lwip/netif.h"
-#include "lwip/ip_addr.h"
-#include "lwip/dhcp.h"
-
 #include "udp_beacon.h"
 
 const uint16_t UDP_BEACON_PORT = 4444;
 const uint16_t UDP_BEACON_MSG_LEN_MAX = 127;
-const char* UDP_BEACON_TARGET ="255.255.255.255";
-const UBaseType_t UDP_TASK_PRIORITY = tskIDLE_PRIORITY + 1UL;
+const char* UDP_BEACON_TARGET ="255.255.255.255"; 
+const UBaseType_t UDP_TASK_PRIORITY = tskIDLE_PRIORITY + 1UL; 
+const uint32_t BEACON_TASK_INTERVAL_MS = 100; /*< interval of the beacon task and therefore the delay between the messages */
+const uint32_t BEACON_SEND_COUNT = 10; /*< amount of messages till the beacon stops sending messages */
 
 typedef enum
 {
@@ -44,7 +40,7 @@ typedef enum
     UDP_BEACON_DEINIT
 } udp_beacon_state_t;
 
-const uint32_t BEACON_TASK_INTERVAL_MS = 100;
+
 
 const uint32_t BEACON_RUNNABLE_DELAY_COUNT_VALUE(const uint32_t delay_ms) { return delay_ms / BEACON_TASK_INTERVAL_MS; }
 
@@ -175,6 +171,7 @@ static void udp_beacon_run(void)
         cyw43_arch_lwip_begin();
         struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, UDP_BEACON_MSG_LEN_MAX + 1, PBUF_RAM);
         char *req = (char *)p->payload;
+        
         memset(req, 0, UDP_BEACON_MSG_LEN_MAX + 1);
         snprintf(req, UDP_BEACON_MSG_LEN_MAX, "%d", this.counter);
         err_t er = udp_sendto(this.pcb, p, &(this.addr), UDP_BEACON_PORT);
@@ -189,8 +186,13 @@ static void udp_beacon_run(void)
             printf("Sent packet %d\n", this.counter);
             this.counter++;
         }
+        if (this.counter >= BEACON_SEND_COUNT)
+        {
+            this.state = UDP_BEACON_STOPPED;
+        }
     }
 }
+
 
 void udp_beacon_task(__unused void *params)
 {

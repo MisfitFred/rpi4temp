@@ -10,6 +10,7 @@ if(TARGET_BUILD)
                                 spi 
                                 udp_beacon
                                 wifi_manager
+                                tempProvider
     )
     target_link_libraries(bbq PUBLIC pico_stdlib FreeRTOS-Kernel-Heap4 pico_cyw43_arch_lwip_sys_freertos)
     

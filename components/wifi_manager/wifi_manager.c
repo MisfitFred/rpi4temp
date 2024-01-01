@@ -14,19 +14,12 @@
  *  - remove poll implementation
  */
 
-#include <string.h>
-#include <stdlib.h>
+
 #include <FreeRTOS.h>
 #include <task.h>
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-
-#include "lwip/pbuf.h"
-#include "lwip/udp.h"
-#include "lwip/netif.h"
-#include "lwip/ip_addr.h"
-#include "lwip/dhcp.h"
 
 #include "wifi_manager.h"
 
